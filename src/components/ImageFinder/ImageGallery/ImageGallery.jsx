@@ -1,3 +1,4 @@
+import { memo } from 'react';
 import PropTypes from 'prop-types';
 import stl from './imageGallery.module.css';
 import ImageGalleryItem from '../ImageGalleryItem';
@@ -28,4 +29,4 @@ ImageGallery.propTypes = {
   onOpen: PropTypes.func.isRequired,
 };
 
-export default ImageGallery;
+export default memo(ImageGallery);

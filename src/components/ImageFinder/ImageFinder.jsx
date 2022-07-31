@@ -1,4 +1,4 @@
-import { Component } from 'react';
+import { useState, useEffect, useCallback } from 'react';
 import stl from './imageFinder.module.css';
 
 import ImageGallery from './ImageGallery';
@@ -9,111 +9,134 @@ import Modal from '../../shared/Modal';
 
 import { getImg } from '../../shared/api/pixabay';
 
-class ImageFinder extends Component {
-  state = {
+function ImageFinder() {
+  // state = {
+  //   images: [],
+  //   isLoading: false,
+  //   error: null,
+  //   q: '',
+  //   page: 1,
+  //   totalPages: 0,
+  //   isModalOpen: false,
+  //   modalImg: {},
+  // };
+
+  const [state, setState] = useState({
     images: [],
     isLoading: false,
     error: null,
-    q: '',
+  });
+
+  const [q, setQ] = useState('');
+  const [pg, setPg] = useState({
     page: 1,
-    totalPages: 0,
+    totalPages: 1,
+  });
+  const [modal, setModal] = useState({
     isModalOpen: false,
     modalImg: {},
-  };
+  });
 
-  async componentDidUpdate(prevProp, prevState) {
-    const { q, page } = this.state;
-    if (!q.trim().length) {
-      alert(
-        'Життя окремої людини має сенс лише тоді, коли вона знає, що хоче знайти'
-      );
-      return;
-    }
-    if (q !== prevState.q) {
-      this.setState({ isLoading: true });
-      try {
-        const { hits, total } = await getImg(q, page);
-        this.setState({
-          images: hits,
-          totalPages: Math.ceil(total / 12),
-          isLoading: false,
-        });
+  useEffect(() => {
+    const fetchImg = async () => {
+      if (!q.trim()) {
         return;
-      } catch (error) {
-        this.setState({ error, isLoading: false });
       }
-    }
-    if (page !== prevState.page) {
-      this.setState({ isLoading: true });
+      setState(prevState => ({ ...prevState, isLoading: true, error: null }));
       try {
-        const { hits, total } = await getImg(q, page);
-        this.setState(({ images }) => ({
-          images: [...images, ...hits],
-          totalPages: Math.ceil(total / 12),
-          isLoading: false,
+        const res = await getImg(q, pg.page);
+
+        const tp = Math.ceil(res.totalHits / 12);
+        setState(prevState => {
+          if (pg.page !== 1) {
+            return {
+              ...prevState,
+              isLoading: false,
+              images: [...prevState.images, ...res.hits],
+            };
+          }
+          return {
+            ...prevState,
+            isLoading: false,
+            images: res.hits,
+          };
+        });
+        setPg(prevPg => ({
+          ...prevPg,
+          totalPages: tp,
         }));
       } catch (error) {
-        this.setState({ error, isLoading: false });
+        setState(prevState => ({
+          ...prevState,
+          isLoading: false,
+          error,
+        }));
       }
-    }
-  }
+    };
+    fetchImg();
+  }, [q, pg.page]);
 
-  setImg = ({ q }) => {
-    this.setState({
-      q,
-    });
-  };
+  const setImg = useCallback(
+    q => {
+      setQ(q);
+      setPg({
+        ...pg,
+        page: 1,
+      });
+    },
+    [setQ, setPg, pg]
+  );
 
-  openModal = modalImg => {
-    console.log('1');
-    this.setState({
-      isModalOpen: true,
-      modalImg,
-    });
-  };
+  const openModal = useCallback(
+    modalImg => {
+      setModal({
+        isModalOpen: true,
+        modalImg,
+      });
+    },
+    [setModal]
+  );
 
-  closeModal = () => {
-    this.setState({
+  const closeModal = useCallback(() => {
+    setModal({
+      ...modal,
       isModalOpen: false,
     });
-  };
+  }, [setModal, modal]);
 
-  loadMore = () => {
-    this.setState(({ page }) => ({
-      page: page + 1,
+  const loadMore = useCallback(() => {
+    setPg(prevPg => ({
+      ...prevPg,
+      page: prevPg.page + 1,
     }));
-  };
+  }, [setPg]);
 
-  render() {
-    const { images, isModalOpen, isLoading, error, page, totalPages, q } =
-      this.state;
-    const { largeImageURL, tags } = this.state.modalImg;
-    return (
-      <div className={stl.block}>
-        <SearchBar onSubmit={this.setImg} />
-        {error && (
-          <p
-            className={stl.message}
-          >{`Something went wrong ${error.message} /n try to type again`}</p>
-        )}
-        {images.length > 0 && (
-          <ImageGallery img={images} onOpen={this.openModal} />
-        )}
-        {!images.length && q.length > 0 && (
-          <p className={stl.message}>Козаче, подумай краще</p>
-        )}
-        {page < totalPages && (
-          <Button onLoad={this.loadMore} title={'Load more'} />
-        )}
-        {isLoading && <Loader />}
-        {isModalOpen && (
-          <Modal onClose={this.closeModal}>
-            <img src={largeImageURL} alt={tags} className={stl.img} />
-          </Modal>
-        )}
-      </div>
-    );
-  }
+  const { images, isLoading, error } = state;
+  const { page, totalPages } = pg;
+  const { isModalOpen } = modal;
+
+  const { largeImageURL, tags } = modal.modalImg;
+  return (
+    <div className={stl.block}>
+      <SearchBar onSubmit={setImg} />
+      {error && (
+        <p
+          className={stl.message}
+        >{`Something went wrong ${error.message} /n try to type again`}</p>
+      )}
+      {images.length > 0 && <ImageGallery img={images} onOpen={openModal} />}
+      {!images.length && q.length > 0 && (
+        <p className={stl.message}>Козаче, подумай краще</p>
+      )}
+      {page < totalPages && <Button onLoad={loadMore} title={'Load more'} />}
+      {isLoading && <Loader />}
+      {isModalOpen && (
+        <Modal onClose={closeModal}>
+          <img src={largeImageURL} alt={tags} className={stl.img} />
+        </Modal>
+      )}
+    </div>
+  );
 }
 
 export default ImageFinder;
