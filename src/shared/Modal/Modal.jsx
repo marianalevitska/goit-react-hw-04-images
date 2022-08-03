@@ -11,7 +11,7 @@ function Modal({ onClose, children }) {
     document.addEventListener('keydown', closeModal);
 
     return () => document.removeEventListener('keydown', closeModal);
-  }, []);
+  }, [closeModal]);
 
   const closeModal = useCallback(
     e => {
